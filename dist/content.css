@@ -1,0 +1,48 @@
+[data-ubersetzer-root] {
+  all: initial;
+}
+
+[data-ubersetzer-popup] {
+  position: fixed;
+  z-index: 2147483647;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(18, 24, 38, 0.96);
+  color: #f5f7ff;
+  box-shadow: 0 20px 50px rgba(7, 11, 24, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+  line-height: 1.4;
+  backdrop-filter: blur(18px);
+  pointer-events: none;
+}
+
+[data-ubersetzer-popup][data-hidden="true"] {
+  display: none;
+}
+
+[data-ubersetzer-popup] .ub-source {
+  font-size: 11px;
+  opacity: 0.65;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+[data-ubersetzer-popup] .ub-word {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+[data-ubersetzer-popup] .ub-translation {
+  font-size: 16px;
+  color: #b8ffd9;
+  word-break: break-word;
+}
+
+[data-ubersetzer-popup] .ub-loading {
+  color: #d4dcff;
+}

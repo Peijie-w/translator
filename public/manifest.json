@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Ubersetzer",
+  "version": "0.1.0",
+  "description": "Hover over words to translate them on web pages, with a dedicated PDF viewer for text-based PDFs.",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://translate.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Ubersetzer"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "viewer.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}
