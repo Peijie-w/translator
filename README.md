@@ -27,6 +27,34 @@ npm run build
 3. 选择“加载已解压的扩展程序”
 4. 选中当前项目下的 `dist` 目录
 
+## Safari 本地测试
+
+Safari 不能直接加载 `dist/` 目录，需要先转换成 Safari Web Extension 的 Xcode 工程：
+
+```bash
+npm run build
+xcrun safari-web-extension-converter dist \
+  --project-location safari \
+  --app-name Translator \
+  --bundle-identifier com.peijiew.translator \
+  --macos-only \
+  --copy-resources \
+  --no-open \
+  --no-prompt \
+  --force
+open safari/Translator/Translator.xcodeproj
+```
+
+然后在 Xcode 里：
+
+1. 选择 `Translator` 这个 macOS App target
+2. 点击运行按钮
+3. App 启动后打开 Safari
+4. 进入 `Safari > 设置 > 扩展`
+5. 勾选 `Translator Extension`
+
+如果 Safari 看不到扩展，先打开 Safari 的开发菜单，再启用“允许未签名扩展”。不同 Safari 版本菜单位置可能略有不同，通常在 `Safari > 设置 > 高级` 里开启开发菜单。
+
 ## 使用方式
 
 ### 网页悬停翻译
