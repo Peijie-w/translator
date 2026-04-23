@@ -61,6 +61,8 @@ open safari/Translator/Translator.xcodeproj
 
 打开任意网页，把鼠标停留在一个词上，等待默认约 700ms，就会出现翻译浮层。
 
+如果需要翻译一整句或一整段，用鼠标拖选那段文字，松开鼠标后会翻译整段选中文本。
+
 ### PDF 翻译
 
 有两种方式：
@@ -69,6 +71,8 @@ open safari/Translator/Translator.xcodeproj
 2. 在 PDF 链接上右键，选择 `Open linked PDF in Ubersetzer`
 
 如果是本地 PDF，也可以直接打开扩展自带 Viewer，然后通过文件选择器导入。
+
+在 PDF Viewer 里也可以拖选一段文本，松开鼠标后会翻译整段选中文本。
 
 ## 翻译服务
 

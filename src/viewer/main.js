@@ -7,10 +7,13 @@ import { extractWordAtPoint, normalizeHoverWord } from '../shared/word.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
+const MAX_SELECTION_LENGTH = 1500;
+
 let settings = await getSettings();
 let hoverTimer = null;
 let requestToken = 0;
 let activeWord = '';
+let selectedText = '';
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'sync') {
@@ -80,6 +83,7 @@ pdfFileInput.addEventListener('change', async () => {
 });
 
 viewerEl.addEventListener('mousemove', handleViewerHover, true);
+viewerEl.addEventListener('mouseup', handleViewerSelectionMouseUp, true);
 viewerEl.addEventListener('scroll', () => hideTooltip(), true);
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
@@ -183,6 +187,11 @@ async function handleViewerHover(event) {
     return;
   }
 
+  if (getSelectedText(document)) {
+    return;
+  }
+
+  selectedText = '';
   const word = normalizeHoverWord(extractWordAtPoint(document, event.clientX, event.clientY));
   if (!word || word.length < 2) {
     activeWord = '';
@@ -201,6 +210,24 @@ async function handleViewerHover(event) {
   hoverTimer = window.setTimeout(() => {
     void translateWord(word, event.clientX, event.clientY);
   }, settings.hoverDelayMs);
+}
+
+function handleViewerSelectionMouseUp(event) {
+  if (!(event.target instanceof Element) || event.target.closest('.viewer-tooltip')) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    const text = normalizeSelectedText(getSelectedText(document));
+    if (!text || text.length < 2 || text === selectedText) {
+      return;
+    }
+
+    selectedText = text;
+    activeWord = '';
+    window.clearTimeout(hoverTimer);
+    void translateSelectedText(text, event.clientX, event.clientY);
+  }, 40);
 }
 
 async function translateWord(word, x, y) {
@@ -237,6 +264,40 @@ async function translateWord(word, x, y) {
   }
 }
 
+async function translateSelectedText(text, x, y) {
+  const token = ++requestToken;
+  showTooltip({ word: text, translation: 'Loading...', source: 'Translating selection' }, x, y);
+
+  try {
+    const result = await requestTranslation({
+      text,
+      targetLanguage: settings.targetLanguage,
+      sourceLanguage: settings.sourceLanguage
+    });
+
+    if (token !== requestToken || selectedText !== text) {
+      return;
+    }
+
+    showTooltip(
+      {
+        word: text,
+        translation: result.translatedText || '(no translation)',
+        source: 'Selected text'
+      },
+      x,
+      y
+    );
+  } catch (error) {
+    if (token !== requestToken) {
+      return;
+    }
+
+    showTooltip({ word: text, translation: 'Translation unavailable', source: 'Selected text' }, x, y);
+    console.warn('[Ubersetzer] Viewer selection translation failed:', error);
+  }
+}
+
 const tooltipRoot = document.createElement('div');
 tooltipRoot.dataset.hidden = 'true';
 tooltipRoot.className = 'viewer-tooltip';
@@ -265,6 +326,19 @@ function positionTooltip(x, y) {
 
 function hideTooltip() {
   tooltipRoot.dataset.hidden = 'true';
+}
+
+function getSelectedText(documentRef) {
+  const selection = documentRef.getSelection?.();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    return '';
+  }
+
+  return selection.toString();
+}
+
+function normalizeSelectedText(text) {
+  return text.replace(/\s+/g, ' ').trim().slice(0, MAX_SELECTION_LENGTH);
 }
 
 function updateQuery(url) {
@@ -395,11 +469,17 @@ function injectViewerStyles() {
       font-weight: 700;
       color: white;
       margin-bottom: 7px;
+      max-height: 4.2em;
+      overflow: hidden;
+      word-break: break-word;
     }
 
     .viewer-tooltip .tip-translation {
       font-size: 16px;
       color: #beffd8;
+      max-height: 8.4em;
+      overflow: auto;
+      word-break: break-word;
     }
   `;
   document.head.append(style);

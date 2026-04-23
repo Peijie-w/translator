@@ -4,6 +4,7 @@
     sourceLanguage: 'auto',
     hoverDelayMs: 700
   };
+  const MAX_SELECTION_LENGTH = 1500;
 
   const popup = createPopup();
   document.documentElement.append(popup.root);
@@ -12,6 +13,7 @@
   let hoverTimer = null;
   let activeToken = 0;
   let hoveredWord = '';
+  let selectedText = '';
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') {
@@ -25,6 +27,7 @@
   });
 
   document.addEventListener('mousemove', handlePointerMove, true);
+  document.addEventListener('mouseup', handleSelectionMouseUp, true);
   document.addEventListener('scroll', () => popup.hide(), true);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -37,6 +40,11 @@
       return;
     }
 
+    if (getSelectedText(document)) {
+      return;
+    }
+
+    selectedText = '';
     const word = normalizeHoverWord(extractWordAtPoint(document, event.clientX, event.clientY));
     if (!word || word.length < 2) {
       hoveredWord = '';
@@ -55,6 +63,27 @@
     hoverTimer = window.setTimeout(() => {
       void translateHoveredWord(word, event.clientX, event.clientY);
     }, settings.hoverDelayMs);
+  }
+
+  function handleSelectionMouseUp(event) {
+    if (
+      !(event.target instanceof Element) ||
+      event.target.closest('[data-ubersetzer-popup]')
+    ) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      const text = normalizeSelectedText(getSelectedText(document));
+      if (!text || text.length < 2 || text === selectedText) {
+        return;
+      }
+
+      selectedText = text;
+      hoveredWord = '';
+      window.clearTimeout(hoverTimer);
+      void translateSelectedText(text, event.clientX, event.clientY);
+    }, 40);
   }
 
   async function translateHoveredWord(word, x, y) {
@@ -102,6 +131,53 @@
     }
   }
 
+  async function translateSelectedText(text, x, y) {
+    const requestToken = ++activeToken;
+    popup.showLoading(text, x, y, 'Translating selection');
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'translate-text',
+        payload: {
+          text,
+          targetLanguage: settings.targetLanguage,
+          sourceLanguage: settings.sourceLanguage
+        }
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error ?? 'Translation request failed.');
+      }
+
+      if (requestToken !== activeToken || selectedText !== text) {
+        return;
+      }
+
+      popup.showResult({
+        word: text,
+        translation: response.data.translatedText || '(no translation)',
+        sourceLanguage: response.data.detectedSourceLanguage,
+        x,
+        y,
+        label: 'Selected text'
+      });
+    } catch (error) {
+      if (requestToken !== activeToken) {
+        return;
+      }
+
+      popup.showResult({
+        word: text,
+        translation: 'Translation unavailable',
+        sourceLanguage: settings.sourceLanguage,
+        x,
+        y,
+        label: 'Selected text'
+      });
+      console.warn('[Ubersetzer] Selection translation failed:', error);
+    }
+  }
+
   function createPopup() {
     const root = document.createElement('div');
     root.dataset.ubersetzerRoot = 'true';
@@ -137,16 +213,16 @@
         panel.style.left = `${Math.max(padding, nextLeft)}px`;
         panel.style.top = `${Math.max(padding, nextTop)}px`;
       },
-      showLoading(word, x, y) {
-        sourceLabel.textContent = 'Translating';
+      showLoading(word, x, y, label = 'Translating') {
+        sourceLabel.textContent = label;
         wordLabel.textContent = word;
         translationLabel.textContent = 'Loading...';
         translationLabel.classList.add('ub-loading');
         panel.dataset.hidden = 'false';
         this.position(x, y);
       },
-      showResult({ word, translation, sourceLanguage, x, y }) {
-        sourceLabel.textContent = sourceLanguage ? `Detected: ${sourceLanguage}` : 'Translation';
+      showResult({ word, translation, sourceLanguage, x, y, label }) {
+        sourceLabel.textContent = label ?? (sourceLanguage ? `Detected: ${sourceLanguage}` : 'Translation');
         wordLabel.textContent = word;
         translationLabel.textContent = translation;
         translationLabel.classList.remove('ub-loading');
@@ -181,6 +257,19 @@
 
   function normalizeHoverWord(word) {
     return word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').trim();
+  }
+
+  function getSelectedText(documentRef) {
+    const selection = documentRef.getSelection?.();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+      return '';
+    }
+
+    return selection.toString();
+  }
+
+  function normalizeSelectedText(text) {
+    return text.replace(/\s+/g, ' ').trim().slice(0, MAX_SELECTION_LENGTH);
   }
 
   function getCaretPosition(documentRef, x, y) {
