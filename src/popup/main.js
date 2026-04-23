@@ -1,7 +1,9 @@
 import { getSettings, saveSettings } from '../shared/storage.js';
 import { LANGUAGE_OPTIONS } from '../shared/languages.js';
+import { getNotebookStats } from '../shared/notebook.js';
 
 const settings = await getSettings();
+const notebookStats = await getNotebookStats();
 const currentTab = await getCurrentTab();
 
 document.body.style.margin = '0';
@@ -27,6 +29,14 @@ document.body.innerHTML = `
         <span>Hover delay: <strong id="delay-label"></strong></span>
         <input id="hover-delay" type="range" min="350" max="1800" step="50" value="${settings.hoverDelayMs}" />
       </label>
+
+      <section style="${summaryStyle()}">
+        <div style="font-size:13px;font-weight:700;">Notebook</div>
+        <div style="font-size:12px;opacity:0.78;line-height:1.5;">
+          ${notebookStats.favoriteCount} favorites · ${notebookStats.historyCount} history entries
+        </div>
+        <button id="open-notebook" style="${secondaryButtonStyle()}">Open notebook</button>
+      </section>
 
       <button id="open-viewer" style="${primaryButtonStyle()}" ${isLikelyPdf(currentTab?.url) ? '' : 'disabled'}>
         Open current PDF in viewer
@@ -56,6 +66,10 @@ hoverDelayInput.addEventListener('input', async () => {
 });
 
 document.querySelector('#open-options').addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
+});
+
+document.querySelector('#open-notebook').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
 
@@ -114,6 +128,17 @@ function fieldStyle() {
     display: grid;
     gap: 8px;
     font-size: 13px;
+  `;
+}
+
+function summaryStyle() {
+  return `
+    display:grid;
+    gap:8px;
+    padding:12px;
+    border-radius:16px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.1);
   `;
 }
 

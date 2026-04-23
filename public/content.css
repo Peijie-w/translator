@@ -15,7 +15,7 @@
   font-family: "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
   line-height: 1.4;
   backdrop-filter: blur(18px);
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 [data-ubersetzer-popup][data-hidden="true"] {
@@ -49,4 +49,31 @@
 
 [data-ubersetzer-popup] .ub-loading {
   color: #d4dcff;
+}
+
+[data-ubersetzer-popup] .ub-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+[data-ubersetzer-popup] .ub-favorite {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 215, 90, 0.12);
+  color: #ffdd85;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-ubersetzer-popup] .ub-favorite[data-favorite="true"] {
+  background: rgba(107, 241, 167, 0.18);
+  color: #b6ffd3;
+}
+
+[data-ubersetzer-popup] .ub-favorite:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
