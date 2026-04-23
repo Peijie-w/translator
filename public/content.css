@@ -34,12 +34,16 @@
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 6px;
+  max-height: 4.2em;
+  overflow: hidden;
   word-break: break-word;
 }
 
 [data-ubersetzer-popup] .ub-translation {
   font-size: 16px;
   color: #b8ffd9;
+  max-height: 8.4em;
+  overflow: auto;
   word-break: break-word;
 }
 
