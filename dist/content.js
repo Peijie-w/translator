@@ -14,6 +14,7 @@
   let activeToken = 0;
   let hoveredWord = '';
   let selectedText = '';
+  let currentEntry = null;
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') {
@@ -37,6 +38,10 @@
 
   function handlePointerMove(event) {
     if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    if (event.target.closest('[data-ubersetzer-popup]')) {
       return;
     }
 
@@ -113,7 +118,14 @@
         translation: response.data.translatedText || '(no translation)',
         sourceLanguage: response.data.detectedSourceLanguage,
         x,
-        y
+        y,
+        entry: await recordTranslation({
+          sourceText: word,
+          translatedText: response.data.translatedText || '(no translation)',
+          sourceLanguage: response.data.detectedSourceLanguage,
+          targetLanguage: settings.targetLanguage,
+          contextType: 'hover'
+        })
       });
     } catch (error) {
       if (requestToken !== activeToken) {
@@ -159,7 +171,14 @@
         sourceLanguage: response.data.detectedSourceLanguage,
         x,
         y,
-        label: 'Selected text'
+        label: 'Selected text',
+        entry: await recordTranslation({
+          sourceText: text,
+          translatedText: response.data.translatedText || '(no translation)',
+          sourceLanguage: response.data.detectedSourceLanguage,
+          targetLanguage: settings.targetLanguage,
+          contextType: 'selection'
+        })
       });
     } catch (error) {
       if (requestToken !== activeToken) {
@@ -195,8 +214,51 @@
     const translationLabel = document.createElement('div');
     translationLabel.className = 'ub-translation';
 
-    panel.append(sourceLabel, wordLabel, translationLabel);
+    const actionRow = document.createElement('div');
+    actionRow.className = 'ub-actions';
+
+    const favoriteButton = document.createElement('button');
+    favoriteButton.className = 'ub-favorite';
+    favoriteButton.type = 'button';
+    favoriteButton.textContent = 'Save';
+    favoriteButton.disabled = true;
+
+    favoriteButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!currentEntry?.id) {
+        return;
+      }
+
+      favoriteButton.disabled = true;
+
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: 'toggle-notebook-favorite',
+          payload: { id: currentEntry.id }
+        });
+
+        if (response?.ok && response.entry) {
+          currentEntry = response.entry;
+          updateFavoriteButton();
+        }
+      } catch (error) {
+        console.warn('[Ubersetzer] Favorite toggle failed:', error);
+      } finally {
+        favoriteButton.disabled = false;
+      }
+    });
+
+    actionRow.append(favoriteButton);
+    panel.append(sourceLabel, wordLabel, translationLabel, actionRow);
     root.append(panel);
+
+    function updateFavoriteButton() {
+      const isFavorite = Boolean(currentEntry?.favorite);
+      favoriteButton.textContent = isFavorite ? 'Saved' : 'Save';
+      favoriteButton.dataset.favorite = String(isFavorite);
+      favoriteButton.disabled = !currentEntry?.id;
+    }
 
     return {
       root,
@@ -214,6 +276,8 @@
         panel.style.top = `${Math.max(padding, nextTop)}px`;
       },
       showLoading(word, x, y, label = 'Translating') {
+        currentEntry = null;
+        updateFavoriteButton();
         sourceLabel.textContent = label;
         wordLabel.textContent = word;
         translationLabel.textContent = 'Loading...';
@@ -221,7 +285,9 @@
         panel.dataset.hidden = 'false';
         this.position(x, y);
       },
-      showResult({ word, translation, sourceLanguage, x, y, label }) {
+      showResult({ word, translation, sourceLanguage, x, y, label, entry }) {
+        currentEntry = entry ?? null;
+        updateFavoriteButton();
         sourceLabel.textContent = label ?? (sourceLanguage ? `Detected: ${sourceLanguage}` : 'Translation');
         wordLabel.textContent = word;
         translationLabel.textContent = translation;
@@ -270,6 +336,24 @@
 
   function normalizeSelectedText(text) {
     return text.replace(/\s+/g, ' ').trim().slice(0, MAX_SELECTION_LENGTH);
+  }
+
+  async function recordTranslation(payload) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'record-translation',
+        payload: {
+          ...payload,
+          pageTitle: document.title,
+          pageUrl: window.location.href
+        }
+      });
+
+      return response?.ok ? response.entry ?? null : null;
+    } catch (error) {
+      console.warn('[Ubersetzer] Notebook update failed:', error);
+      return null;
+    }
   }
 
   function getCaretPosition(documentRef, x, y) {

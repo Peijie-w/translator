@@ -14,6 +14,7 @@ let hoverTimer = null;
 let requestToken = 0;
 let activeWord = '';
 let selectedText = '';
+let currentEntry = null;
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'sync') {
@@ -187,6 +188,10 @@ async function handleViewerHover(event) {
     return;
   }
 
+  if (target.closest('.viewer-tooltip')) {
+    return;
+  }
+
   if (getSelectedText(document)) {
     return;
   }
@@ -249,7 +254,14 @@ async function translateWord(word, x, y) {
       {
         word,
         translation: result.translatedText || '(no translation)',
-        source: result.detectedSourceLanguage ? `Detected: ${result.detectedSourceLanguage}` : 'Translation'
+        source: result.detectedSourceLanguage ? `Detected: ${result.detectedSourceLanguage}` : 'Translation',
+        entry: await recordTranslation({
+          sourceText: word,
+          translatedText: result.translatedText || '(no translation)',
+          sourceLanguage: result.detectedSourceLanguage,
+          targetLanguage: settings.targetLanguage,
+          contextType: 'hover'
+        })
       },
       x,
       y
@@ -283,7 +295,14 @@ async function translateSelectedText(text, x, y) {
       {
         word: text,
         translation: result.translatedText || '(no translation)',
-        source: 'Selected text'
+        source: 'Selected text',
+        entry: await recordTranslation({
+          sourceText: text,
+          translatedText: result.translatedText || '(no translation)',
+          sourceLanguage: result.detectedSourceLanguage,
+          targetLanguage: settings.targetLanguage,
+          contextType: 'selection'
+        })
       },
       x,
       y
@@ -305,10 +324,43 @@ tooltipRoot.innerHTML = `
   <div class="tip-source"></div>
   <div class="tip-word"></div>
   <div class="tip-translation"></div>
+  <div class="tip-actions">
+    <button class="tip-favorite" type="button">Save</button>
+  </div>
 `;
 document.body.append(tooltipRoot);
 
-function showTooltip({ word, translation, source }, x, y) {
+const favoriteButton = tooltipRoot.querySelector('.tip-favorite');
+
+favoriteButton.addEventListener('click', async (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (!currentEntry?.id) {
+    return;
+  }
+
+  favoriteButton.disabled = true;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'toggle-notebook-favorite',
+      payload: { id: currentEntry.id }
+    });
+
+    if (response?.ok && response.entry) {
+      currentEntry = response.entry;
+      updateFavoriteButton();
+    }
+  } catch (error) {
+    console.warn('[Ubersetzer] Viewer favorite toggle failed:', error);
+  } finally {
+    favoriteButton.disabled = false;
+  }
+});
+
+function showTooltip({ word, translation, source, entry }, x, y) {
+  currentEntry = entry ?? null;
+  updateFavoriteButton();
   tooltipRoot.querySelector('.tip-source').textContent = source;
   tooltipRoot.querySelector('.tip-word').textContent = word;
   tooltipRoot.querySelector('.tip-translation').textContent = translation;
@@ -328,6 +380,13 @@ function hideTooltip() {
   tooltipRoot.dataset.hidden = 'true';
 }
 
+function updateFavoriteButton() {
+  const isFavorite = Boolean(currentEntry?.favorite);
+  favoriteButton.textContent = isFavorite ? 'Saved' : 'Save';
+  favoriteButton.dataset.favorite = String(isFavorite);
+  favoriteButton.disabled = !currentEntry?.id;
+}
+
 function getSelectedText(documentRef) {
   const selection = documentRef.getSelection?.();
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
@@ -339,6 +398,24 @@ function getSelectedText(documentRef) {
 
 function normalizeSelectedText(text) {
   return text.replace(/\s+/g, ' ').trim().slice(0, MAX_SELECTION_LENGTH);
+}
+
+async function recordTranslation(payload) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'record-translation',
+      payload: {
+        ...payload,
+        pageTitle: document.title,
+        pageUrl: new URLSearchParams(window.location.search).get('file') || window.location.href
+      }
+    });
+
+    return response?.ok ? response.entry ?? null : null;
+  } catch (error) {
+    console.warn('[Ubersetzer] Viewer notebook update failed:', error);
+    return null;
+  }
 }
 
 function updateQuery(url) {
@@ -449,7 +526,7 @@ function injectViewerStyles() {
       background: rgba(15, 20, 31, 0.96);
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 20px 44px rgba(0, 0, 0, 0.32);
-      pointer-events: none;
+      pointer-events: auto;
     }
 
     .viewer-tooltip[data-hidden="true"] {
@@ -480,6 +557,33 @@ function injectViewerStyles() {
       max-height: 8.4em;
       overflow: auto;
       word-break: break-word;
+    }
+
+    .viewer-tooltip .tip-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .viewer-tooltip .tip-favorite {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 215, 90, 0.12);
+      color: #ffdd85;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .viewer-tooltip .tip-favorite[data-favorite="true"] {
+      background: rgba(107, 241, 167, 0.18);
+      color: #b6ffd3;
+    }
+
+    .viewer-tooltip .tip-favorite:disabled {
+      opacity: 0.55;
+      cursor: default;
     }
   `;
   document.head.append(style);

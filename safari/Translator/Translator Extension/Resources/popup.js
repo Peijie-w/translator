@@ -1,34 +1,42 @@
-import{g as s,s as l}from"./chunks/storage.js";import{L as u}from"./chunks/languages.js";const r=await s(),t=await p();document.body.style.margin="0";document.body.innerHTML=`
-  <main style="${b()}">
-    <section style="${y()}">
+import{g as u,s as d}from"./chunks/storage.js";import{L as c}from"./chunks/languages.js";import{g as p}from"./chunks/notebook.js";import"./chunks/defaults.js";const r=await u(),a=await p(),n=await b();document.body.style.margin="0";document.body.innerHTML=`
+  <main style="${f()}">
+    <section style="${m()}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
         <div>
           <div style="font-size:20px;font-weight:700;">Ubersetzer</div>
           <div style="font-size:12px;opacity:0.68;margin-top:4px;">Hover over a word to translate it after a short delay.</div>
         </div>
-        <button id="open-options" style="${i()}">Settings</button>
+        <button id="open-options" style="${t()}">Settings</button>
       </div>
 
-      <label style="${o()}">
+      <label style="${s()}">
         <span>Target language</span>
-        <select id="target-language" style="${f()}">
-          ${u.map(e=>`<option value="${e.value}">${e.label}</option>`).join("")}
+        <select id="target-language" style="${x()}">
+          ${c.map(e=>`<option value="${e.value}">${e.label}</option>`).join("")}
         </select>
       </label>
 
-      <label style="${o()}">
+      <label style="${s()}">
         <span>Hover delay: <strong id="delay-label"></strong></span>
         <input id="hover-delay" type="range" min="350" max="1800" step="50" value="${r.hoverDelayMs}" />
       </label>
 
-      <button id="open-viewer" style="${v()}" ${g(t?.url)?"":"disabled"}>
+      <section style="${v()}">
+        <div style="font-size:13px;font-weight:700;">Notebook</div>
+        <div style="font-size:12px;opacity:0.78;line-height:1.5;">
+          ${a.favoriteCount} favorites · ${a.historyCount} history entries
+        </div>
+        <button id="open-notebook" style="${t()}">Open notebook</button>
+      </section>
+
+      <button id="open-viewer" style="${w()}" ${y(n?.url)?"":"disabled"}>
         Open current PDF in viewer
       </button>
 
-      <button id="open-empty-viewer" style="${i()}">Open standalone PDF viewer</button>
+      <button id="open-empty-viewer" style="${t()}">Open standalone PDF viewer</button>
     </section>
   </main>
-`;const n=document.querySelector("#target-language"),a=document.querySelector("#hover-delay"),d=document.querySelector("#delay-label"),c=document.querySelector("#open-viewer");n.value=r.targetLanguage;d.textContent=`${r.hoverDelayMs} ms`;n.addEventListener("change",async()=>{await l({targetLanguage:n.value})});a.addEventListener("input",async()=>{const e=Number(a.value);d.textContent=`${e} ms`,await l({hoverDelayMs:e})});document.querySelector("#open-options").addEventListener("click",()=>{chrome.runtime.openOptionsPage()});c.addEventListener("click",async()=>{t?.url&&(await chrome.tabs.create({url:chrome.runtime.getURL(`viewer.html?file=${encodeURIComponent(t.url)}`)}),window.close())});document.querySelector("#open-empty-viewer").addEventListener("click",async()=>{await chrome.tabs.create({url:chrome.runtime.getURL("viewer.html")}),window.close()});async function p(){const[e]=await chrome.tabs.query({active:!0,currentWindow:!0});return e}function g(e){return!!(e&&/\.pdf(?:$|[?#])/i.test(e))}function b(){return`
+`;const o=document.querySelector("#target-language"),i=document.querySelector("#hover-delay"),l=document.querySelector("#delay-label"),g=document.querySelector("#open-viewer");o.value=r.targetLanguage;l.textContent=`${r.hoverDelayMs} ms`;o.addEventListener("change",async()=>{await d({targetLanguage:o.value})});i.addEventListener("input",async()=>{const e=Number(i.value);l.textContent=`${e} ms`,await d({hoverDelayMs:e})});document.querySelector("#open-options").addEventListener("click",()=>{chrome.runtime.openOptionsPage()});document.querySelector("#open-notebook").addEventListener("click",()=>{chrome.runtime.openOptionsPage()});g.addEventListener("click",async()=>{n?.url&&(await chrome.tabs.create({url:chrome.runtime.getURL(`viewer.html?file=${encodeURIComponent(n.url)}`)}),window.close())});document.querySelector("#open-empty-viewer").addEventListener("click",async()=>{await chrome.tabs.create({url:chrome.runtime.getURL("viewer.html")}),window.close()});async function b(){const[e]=await chrome.tabs.query({active:!0,currentWindow:!0});return e}function y(e){return!!(e&&/\.pdf(?:$|[?#])/i.test(e))}function f(){return`
     width: 340px;
     padding: 16px;
     background:
@@ -37,7 +45,7 @@ import{g as s,s as l}from"./chunks/storage.js";import{L as u}from"./chunks/langu
     color: #f8fbff;
     font-family: "Avenir Next", "PingFang SC", sans-serif;
     box-sizing: border-box;
-  `}function y(){return`
+  `}function m(){return`
     display: grid;
     gap: 14px;
     padding: 16px;
@@ -45,18 +53,25 @@ import{g as s,s as l}from"./chunks/storage.js";import{L as u}from"./chunks/langu
     border: 1px solid rgba(255,255,255,0.12);
     background: rgba(255,255,255,0.06);
     box-shadow: 0 22px 40px rgba(0,0,0,0.26);
-  `}function o(){return`
+  `}function s(){return`
     display: grid;
     gap: 8px;
     font-size: 13px;
-  `}function f(){return`
+  `}function v(){return`
+    display:grid;
+    gap:8px;
+    padding:12px;
+    border-radius:16px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.1);
+  `}function x(){return`
     width: 100%;
     padding: 10px 12px;
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.18);
     background: rgba(255,255,255,0.12);
     color: #f8fbff;
-  `}function v(){return`
+  `}function w(){return`
     padding: 12px 14px;
     border-radius: 14px;
     border: none;
@@ -64,7 +79,7 @@ import{g as s,s as l}from"./chunks/storage.js";import{L as u}from"./chunks/langu
     color: #1e120b;
     font-weight: 700;
     cursor: pointer;
-  `}function i(){return`
+  `}function t(){return`
     padding: 10px 12px;
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.16);

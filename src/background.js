@@ -1,9 +1,5 @@
-const DEFAULT_SETTINGS = {
-  targetLanguage: 'zh-CN',
-  sourceLanguage: 'auto',
-  hoverDelayMs: 700,
-  pdfScale: 1.35
-};
+import { DEFAULT_SETTINGS } from './shared/defaults.js';
+import { getNotebookStats, setNotebookFavorite, upsertNotebookEntry } from './shared/notebook.js';
 
 const PDF_URL_PATTERN = /\.pdf(?:$|[?#])/i;
 
@@ -38,16 +34,40 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== 'translate-text') {
-    return false;
-  }
-
-  translateText(message.payload)
-    .then((data) => sendResponse({ ok: true, data }))
-    .catch((error) => sendResponse({ ok: false, error: error.message }));
-
+  void handleMessage(message, sendResponse);
   return true;
 });
+
+async function handleMessage(message, sendResponse) {
+  try {
+    switch (message?.type) {
+      case 'translate-text': {
+        const data = await translateText(message.payload);
+        sendResponse({ ok: true, data });
+        return;
+      }
+      case 'record-translation': {
+        const entry = await upsertNotebookEntry(message.payload);
+        sendResponse({ ok: true, entry });
+        return;
+      }
+      case 'toggle-notebook-favorite': {
+        const entry = await setNotebookFavorite(message.payload?.id, message.payload?.favorite);
+        sendResponse({ ok: true, entry });
+        return;
+      }
+      case 'get-notebook-stats': {
+        const stats = await getNotebookStats();
+        sendResponse({ ok: true, stats });
+        return;
+      }
+      default:
+        sendResponse({ ok: false, error: 'Unsupported message type.' });
+    }
+  } catch (error) {
+    sendResponse({ ok: false, error: error.message });
+  }
+}
 
 async function translateText({ text, targetLanguage, sourceLanguage = 'auto' }) {
   const trimmed = String(text ?? '').trim();
