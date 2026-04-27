@@ -6,6 +6,7 @@
 - 通过扩展内置的 PDF Viewer 打开 PDF 后，也可以对 PDF 文本执行同样的悬停翻译
 - 目标语言、源语言、悬停延迟、PDF 默认缩放都可以在设置页调整
 - 支持历史记录和收藏词本，翻译后可以点击 `Save` 保存到 Notebook
+- 支持切换翻译 provider，当前内置 `Google Web (Prototype)` 和 `LibreTranslate`
 
 ## 当前能力
 
@@ -89,6 +90,11 @@ PDF Viewer 的翻译浮层同样支持 `Save`，可以把单词或整段收藏�
 
 ## 翻译服务
 
-当前版本默认通过 Google 的网页翻译接口获取结果，适合做原型验证。若你要长期使用，建议下一步切换为你自己的正式翻译 API。
+当前版本支持两种 provider：
+
+- `Google Web (Prototype)`：默认值，适合快速原型验证
+- `LibreTranslate`：可在设置页里填写你自己的 LibreTranslate 兼容接口地址和可选 API Key
+
+如果你要长期稳定使用，建议优先切到你自己的正式翻译 API，而不是一直依赖原型 provider。
 
 # translator

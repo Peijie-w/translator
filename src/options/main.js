@@ -1,8 +1,10 @@
-import { getSettings, saveSettings } from '../shared/storage.js';
+import { getProviderConfig, getSettings, saveProviderConfig, saveSettings } from '../shared/storage.js';
 import { LANGUAGE_OPTIONS } from '../shared/languages.js';
 import { clearNotebookHistory, getNotebook, removeNotebookEntry, setNotebookFavorite } from '../shared/notebook.js';
+import { getTranslationProviderMeta, TRANSLATION_PROVIDER_OPTIONS } from '../shared/translation-providers.js';
 
 const settings = await getSettings();
+let providerConfig = await getProviderConfig();
 let notebook = await getNotebook();
 let notebookFilter = 'all';
 let notebookSearch = '';
@@ -53,6 +55,33 @@ document.querySelector('#app').innerHTML = `
         </label>
       </section>
 
+      <section style="display:grid;gap:16px;padding:22px;border-radius:24px;background:#fffdf8;border:1px solid rgba(20,32,38,0.08);">
+        <div style="display:grid;gap:6px;">
+          <strong style="font-size:22px;color:#1c271d;">Translation provider</strong>
+          <span style="font-size:14px;color:#52605d;">Choose how the extension fetches translations. Google Web stays as the default prototype path, while LibreTranslate lets you plug in a proper hosted API.</span>
+        </div>
+
+        <label style="${fieldCardStyle()}">
+          <span>Provider</span>
+          <select id="translation-provider" style="${fieldControlStyle()}">
+            ${TRANSLATION_PROVIDER_OPTIONS.map((option) => `<option value="${option.value}">${option.label}</option>`).join('')}
+          </select>
+          <strong id="translation-provider-description" style="font-size:13px;color:#5f6c69;"></strong>
+        </label>
+
+        <div id="libretranslate-settings" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:18px;">
+          <label style="${fieldCardStyle()}">
+            <span>LibreTranslate endpoint</span>
+            <input id="libretranslate-endpoint" type="url" placeholder="https://your-server.example/translate" style="${fieldControlStyle()}" />
+          </label>
+
+          <label style="${fieldCardStyle()}">
+            <span>LibreTranslate API key</span>
+            <input id="libretranslate-api-key" type="password" placeholder="Optional" style="${fieldControlStyle()}" />
+          </label>
+        </div>
+      </section>
+
       <section style="display:grid;gap:10px;padding:18px 20px;border-radius:20px;background:#182129;color:#eef7ff;">
         <strong style="font-size:16px;">Usage notes</strong>
         <div style="font-size:14px;line-height:1.6;color:#d9e6f2;">
@@ -90,6 +119,11 @@ const hoverDelayInput = document.querySelector('#hover-delay');
 const hoverDelayLabel = document.querySelector('#hover-delay-label');
 const pdfScaleInput = document.querySelector('#pdf-scale');
 const pdfScaleLabel = document.querySelector('#pdf-scale-label');
+const translationProviderSelect = document.querySelector('#translation-provider');
+const translationProviderDescription = document.querySelector('#translation-provider-description');
+const libreTranslateSettings = document.querySelector('#libretranslate-settings');
+const libreTranslateEndpointInput = document.querySelector('#libretranslate-endpoint');
+const libreTranslateApiKeyInput = document.querySelector('#libretranslate-api-key');
 const notebookSearchInput = document.querySelector('#notebook-search');
 const notebookList = document.querySelector('#notebook-list');
 const notebookSummary = document.querySelector('#notebook-summary');
@@ -98,7 +132,11 @@ targetLanguageSelect.value = settings.targetLanguage;
 sourceLanguageSelect.value = settings.sourceLanguage;
 hoverDelayLabel.textContent = `${settings.hoverDelayMs} ms`;
 pdfScaleLabel.textContent = `${settings.pdfScale.toFixed(2)}x`;
+translationProviderSelect.value = settings.translationProvider;
+libreTranslateEndpointInput.value = providerConfig.libreTranslateEndpoint;
+libreTranslateApiKeyInput.value = providerConfig.libreTranslateApiKey;
 
+updateProviderFields();
 renderNotebook();
 
 targetLanguageSelect.addEventListener('change', async () => {
@@ -119,6 +157,22 @@ pdfScaleInput.addEventListener('input', async () => {
   const value = Number(pdfScaleInput.value);
   pdfScaleLabel.textContent = `${value.toFixed(2)}x`;
   await saveSettings({ pdfScale: value });
+});
+
+translationProviderSelect.addEventListener('change', async () => {
+  await saveSettings({ translationProvider: translationProviderSelect.value });
+  settings.translationProvider = translationProviderSelect.value;
+  updateProviderFields();
+});
+
+libreTranslateEndpointInput.addEventListener('change', async () => {
+  await saveProviderConfig({ libreTranslateEndpoint: libreTranslateEndpointInput.value.trim() });
+  providerConfig = await getProviderConfig();
+});
+
+libreTranslateApiKeyInput.addEventListener('change', async () => {
+  await saveProviderConfig({ libreTranslateApiKey: libreTranslateApiKeyInput.value.trim() });
+  providerConfig = await getProviderConfig();
 });
 
 notebookSearchInput.addEventListener('input', () => {
@@ -173,12 +227,26 @@ notebookList.addEventListener('click', async (event) => {
 
 chrome.storage.onChanged.addListener(async (changes, areaName) => {
   if (areaName !== 'local' || !changes.translationNotebook) {
+    if (areaName === 'local' && changes.translationProviderConfig) {
+      providerConfig = await getProviderConfig();
+      libreTranslateEndpointInput.value = providerConfig.libreTranslateEndpoint;
+      libreTranslateApiKeyInput.value = providerConfig.libreTranslateApiKey;
+    }
     return;
   }
 
   notebook = await getNotebook();
   renderNotebook();
 });
+
+function updateProviderFields() {
+  const meta = getTranslationProviderMeta(translationProviderSelect.value);
+  translationProviderDescription.textContent = meta.description;
+  libreTranslateSettings.style.display =
+    translationProviderSelect.value === 'libretranslate'
+      ? 'grid'
+      : 'none';
+}
 
 function renderNotebook() {
   const entries = notebook.entries.filter((entry) => {

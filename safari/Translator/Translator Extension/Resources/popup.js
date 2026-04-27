@@ -1,4 +1,4 @@
-import{g as u,s as d}from"./chunks/storage.js";import{L as c}from"./chunks/languages.js";import{g as p}from"./chunks/notebook.js";import"./chunks/defaults.js";const r=await u(),a=await p(),n=await b();document.body.style.margin="0";document.body.innerHTML=`
+import"./chunks/modulepreload-polyfill.js";import{g as u,s as d}from"./chunks/storage.js";import{L as c}from"./chunks/languages.js";import{g as p}from"./chunks/notebook.js";const r=await u(),a=await p(),n=await b();document.body.style.margin="0";document.body.innerHTML=`
   <main style="${f()}">
     <section style="${m()}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
