@@ -1,5 +1,7 @@
 import { DEFAULT_SETTINGS } from './shared/defaults.js';
 import { getNotebookStats, setNotebookFavorite, upsertNotebookEntry } from './shared/notebook.js';
+import { getProviderConfig, getSettings } from './shared/storage.js';
+import { translateWithProvider } from './shared/translation-service.js';
 
 const PDF_URL_PATTERN = /\.pdf(?:$|[?#])/i;
 
@@ -70,32 +72,16 @@ async function handleMessage(message, sendResponse) {
 }
 
 async function translateText({ text, targetLanguage, sourceLanguage = 'auto' }) {
-  const trimmed = String(text ?? '').trim();
-  if (!trimmed) {
-    throw new Error('No text provided.');
-  }
+  const settings = await getSettings();
+  const providerConfig = await getProviderConfig();
 
-  const url = new URL('https://translate.googleapis.com/translate_a/single');
-  url.searchParams.set('client', 'gtx');
-  url.searchParams.set('sl', sourceLanguage);
-  url.searchParams.set('tl', targetLanguage);
-  url.searchParams.set('dt', 't');
-  url.searchParams.set('q', trimmed);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Translate request failed: ${response.status}`);
-  }
-
-  const body = await response.json();
-  const translatedText = Array.isArray(body?.[0])
-    ? body[0].map((item) => item?.[0] ?? '').join('')
-    : '';
-
-  return {
-    translatedText: translatedText.trim(),
-    detectedSourceLanguage: body?.[2] ?? sourceLanguage
-  };
+  return translateWithProvider({
+    text,
+    targetLanguage,
+    sourceLanguage,
+    provider: settings.translationProvider,
+    providerConfig
+  });
 }
 
 function openPdfViewer(fileUrl) {
